@@ -16,8 +16,8 @@ namespace PiGPS
 {
     internal class Program
     {
-        private static readonly SerialPort _portRead = new("/dev/ttyUSB2", 115200, Parity.None);
-        private static readonly SerialPort _portWrite = new("/dev/ttyUSB1", 115200, Parity.None);
+        private static readonly SerialPort PortRead = new("/dev/ttyUSB1", 115200, Parity.None);
+        private static readonly SerialPort PortWrite = new("/dev/ttyUSB2", 115200, Parity.None);
 
         private static void Main(string[] args)
         {
@@ -30,7 +30,7 @@ namespace PiGPS
 
             while (true)
             {
-                string read = _portRead.ReadLine();
+                string read = PortRead.ReadLine();
                 Console.WriteLine(read);
                 Console.WriteLine(gps.Parse(read));
                 Console.WriteLine(DateTime.Now);
@@ -40,12 +40,12 @@ namespace PiGPS
 
         private static void ResetGps()
         {
-            _portWrite.Open();
+            PortWrite.Open();
             Thread.Sleep(100);
-            _portWrite.Write("AT+QGPS=1\\r");
+            PortWrite.Write("AT+QGPS=1\\r");
             Thread.Sleep(100);
-            _portWrite.Close();
-            _portRead.Open();
+            PortWrite.Close();
+            PortRead.Open();
         }
 
         private static void Gps_FixObtained()
