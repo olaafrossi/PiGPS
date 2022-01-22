@@ -12,7 +12,7 @@ using System.Globalization;
 // VTG Track made good and ground speed
 // GSA GPS DOP and active satellites 
 // GGA Global Positioning System Fix Data
-// GSV GPS Satellites in view
+// GSV Satellites in view
 
 namespace PiGPS
 {
@@ -57,33 +57,26 @@ namespace PiGPS
 
         public bool Parse(string sentence)
         {
-            // Discard the sentence if its checksum does not match our
-            // calculated checksum
-            //if (!IsValid(sentence))
-            //{
-            //    Console.WriteLine("checksum failed");
-            //    return false;
-            //}
-
             string[] splits = GetWords(sentence);
 
-            switch (GetWords(sentence)[0])
+            if (splits[0] == "$GPRMC")
             {
-                case "$GPRMC":
-                    Console.WriteLine("CASE $GPRMC");
-                    // A "Recommended Minimum" sentence was found!
-                    return ParseGPRMC(sentence);
-                case "$GPGSV":
-                    Console.WriteLine("CASE $GPGSV");
-                    // A "Satellites in View" sentence was received
-                    return ParseGPGSV(sentence);
-                case "$GPGSA":
-                    Console.WriteLine("CASE$GPGSA");
-                    return ParseGPGSA(sentence);
-                default:
-                    // Indicate that the sentence was not recognized
-                    return false;
+                Console.WriteLine("Valid GPRMC Sentence");
+                return ParseGPRMC(sentence);
             }
+            if (splits[0] == "$GPGSV")
+            {
+                Console.WriteLine("Valid GPGSV Sentence");
+                return ParseGPGSV(sentence);
+            }
+            if (splits[0] == "$GPGSA")
+            {
+                Console.WriteLine("Valid GPGSA Sentence");
+                return ParseGPGSA(sentence);
+            }
+
+            // if no match, return
+            return false;
         }
 
         private static string[] GetWords(string sentence)
@@ -94,55 +87,58 @@ namespace PiGPS
         public bool ParseGPRMC(string sentence)
         {
             string[] Words = GetWords(sentence);
-            // Do we have enough values to describe our location?
+            
             if (Words[3] != "" && Words[4] != "" && Words[5] != "" && Words[6] != "")
             {
-                // Yes. Extract latitude and longitude
-                // Append hours
-                string Latitude = Words[3].Substring(0, 2) + "°";
+
+                string latitude = Words[3].Substring(0, 2) + "°";
+                
                 // Append minutes
-                Latitude = Latitude + Words[3].Substring(2) + "\"";
+                latitude = latitude + Words[3].Substring(2) + "\"";
+                
                 // Append hours
-                Latitude = Latitude + Words[4]; // Append the hemisphere
-                string Longitude = Words[5].Substring(0, 3) + "°";
-                // Append minutes
-                Longitude = Longitude + Words[5].Substring(3) + "\"";
+                latitude = latitude + Words[4]; 
+                
                 // Append the hemisphere
-                Longitude = Longitude + Words[6];
+                string longitude = Words[5].Substring(0, 3) + "°";
+                
+                // Append minutes
+                longitude = longitude + Words[5].Substring(3) + "\"";
+                
+                // Append the hemisphere
+                longitude = longitude + Words[6];
 
                 // Notify the calling application of the change
-                if (PositionReceived != null)
+                if (PositionReceived is not null)
                 {
-                    PositionReceived(Latitude, Longitude);
+                    PositionReceived(latitude, longitude);
                 }
             }
 
-            // Do we have enough values to parse satellite-derived time?
-            if (Words[1] != "")
+            if (Words[1] is not "")
             {
                 // Yes. Extract hours, minutes, seconds and milliseconds
-                int UtcHours = Convert.ToInt32(Words[1].Substring(0, 2));
-                int UtcMinutes = Convert.ToInt32(Words[1].Substring(2, 2));
-                int UtcSeconds = Convert.ToInt32(Words[1].Substring(4, 2));
-                int UtcMilliseconds = 0;
+                int utcHours = Convert.ToInt32(Words[1].Substring(0, 2));
+                int utcMinutes = Convert.ToInt32(Words[1].Substring(2, 2));
+                int utcSeconds = Convert.ToInt32(Words[1].Substring(4, 2));
+                int utcMilliseconds = 0;
                 // Extract milliseconds if it is available
                 if (Words[1].Length > 7)
                 {
-                    UtcMilliseconds = Convert.ToInt32(float.Parse(Words[1].Substring(6), NmeaCultureInfo) * 1000);
+                    utcMilliseconds = Convert.ToInt32(float.Parse(Words[1].Substring(6), NmeaCultureInfo) * 1000);
                 }
 
-                DateTime Today = DateTime.Now.ToUniversalTime();
-                DateTime SatelliteTime = new(Today.Year,
-                    Today.Month, Today.Day, UtcHours, UtcMinutes, UtcSeconds,
-                    UtcMilliseconds);
+                DateTime today = DateTime.Now.ToUniversalTime();
+                DateTime satelliteTime = new(today.Year, today.Month, today.Day, utcHours, utcMinutes, utcSeconds, utcMilliseconds);
+
                 // Notify of the new time, adjusted to the local time zone
                 if (DateTimeChanged != null)
                 {
-                    DateTimeChanged(SatelliteTime.ToLocalTime());
+                    DateTimeChanged(satelliteTime.ToLocalTime());
                 }
             }
 
-            if (Words[7] != "")
+            if (Words[7] is not "")
             {
                 // Yes.  Parse the speed and convert it to MPH
                 double Speed = double.Parse(Words[7], NmeaCultureInfo) *
@@ -154,7 +150,7 @@ namespace PiGPS
                 }
             }
 
-            if (Words[8] != "")
+            if (Words[8] is not "")
             {
                 double Bearing = double.Parse(Words[8], NmeaCultureInfo);
                 if (BearingReceived != null)
@@ -163,24 +159,21 @@ namespace PiGPS
                 }
             }
 
-            if (Words[2] != "")
+            if (Words[2] is not "")
             {
-                switch (Words[2])
+                if (Words[2] == "A")
                 {
-                    case "A":
-                        if (FixObtained != null)
-                        {
-                            FixObtained();
-                        }
-
-                        break;
-                    case "V":
-                        if (FixLost != null)
-                        {
-                            FixLost();
-                        }
-
-                        break;
+                    if (FixObtained is not null)
+                    {
+                        FixObtained();
+                    }
+                }
+                else if (Words[2] == "V")
+                {
+                    if (FixLost is not null)
+                    {
+                        FixLost();
+                    }
                 }
             }
 
